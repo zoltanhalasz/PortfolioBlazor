@@ -1,0 +1,136 @@
+﻿@page "/marketstatistics"
+@using PortfolioBlazor.Data
+@inject PortfolioBlazor.Services.IPortfolioOperations myOperations
+@using System.Globalization
+@inject NotificationService notificationService
+@using OfficeOpenXml;
+@inject IJSRuntime iJSRuntime;
+
+<h2>Market Statistics for @SelectedSymbol</h2>
+
+<div class="form-group row">
+    @if (SymbolList != null)
+    {
+        <label for="department" class="col-sm-2 col-form-label">
+            Symbol
+        </label>
+        <div class="col-sm-2">
+            <select id="Symbol" @bind="SelectedSymbol" class="form-control">
+                @foreach (var s in SymbolList)
+                {
+                    <option value="@s">@s</option>
+                }
+            </select>
+        </div>
+        <div class="col-sm-2">
+            <button class="btn btn-secondary" @onclick="ShowHistory">Show History</button>
+        </div>
+        <div class="col-sm-2">
+            <button class="btn btn-primary" @onclick="DownloadExcel">Download</button>
+        </div>
+    }
+</div>
+
+@if (StockHistory != null)
+{
+    <div class="row">
+        <div class="col-md-12">           
+            <RadzenChart>
+                <RadzenLineSeries Smooth="false" Data="@StockHistory" CategoryProperty="Timestamp" Title="Closing Market Price" LineType="Radzen.Blazor.LineType.Solid" ValueProperty="Close">
+                    <RadzenMarkers MarkerType="MarkerType.None" />
+                </RadzenLineSeries>
+                <RadzenLineSeries Smooth="false" Data="@StockHistory" CategoryProperty="Timestamp" Title="Buying Limit" LineType="Radzen.Blazor.LineType.Dotted" ValueProperty="RecentMax">
+                    <RadzenMarkers MarkerType="MarkerType.None" />
+                </RadzenLineSeries>
+                <RadzenLineSeries Smooth="false" Data="@StockHistory" CategoryProperty="Timestamp" Title="Selling Limit" LineType="Radzen.Blazor.LineType.Dotted" ValueProperty="Average">
+                    <RadzenMarkers MarkerType="MarkerType.None" />
+                </RadzenLineSeries>
+                <RadzenCategoryAxis Padding="20" FormatString="{0:MMMdd}" />
+                <RadzenValueAxis>
+                    <RadzenGridLines Visible="true" />
+                    <RadzenAxisTitle Text="Market price in USD" />
+                </RadzenValueAxis>
+            </RadzenChart>
+        </div>
+    </div>
+    <div class="row">
+        <table class="table table-md table-bordered">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Date</th>
+                    <th>Open</th>
+                    <th>High</th>
+                    <th>Low</th>
+                    <th>Close</th>
+                    <th>Volume</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in StockHistory)
+                {
+                    <tr>
+                        <td>@item.Symbol</td>
+                        <td>@item.Timestamp.ToShortDateString()</td>
+                        <td>@item.Open</td>
+                        <td>@item.High</td>
+                        <td>@item.Low</td>
+                        <td class="alert-dark">@item.Close</td>
+                        <td>@Math.Round(item.Volume, 0)</td>
+                        <td><button class="btn btn-danger" @onclick="@(()=> DeleteItem(@item.Id))">Delete</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+}
+
+
+@code {
+    List<string> SymbolList;
+    string SelectedSymbol = "AAPL";
+    List<History> StockHistory = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        SymbolList = await myOperations.GetSymbols();
+        StockHistory = await myOperations.GetHistory(SelectedSymbol);
+    }
+
+    async Task ShowHistory()
+    {
+        StockHistory = await myOperations.GetHistory(SelectedSymbol);
+    }
+
+    async Task DeleteItem(int id)
+    {
+        Console.WriteLine($"You wanted to delete {id}");
+        //await myOperations.DeleteHistoryItemById(id);
+        //StockHistory = await myOperations.GetHistory(SelectedSymbol);
+        //StateHasChanged();
+        NotificationMessage message = new NotificationMessage() { Summary = "Item Deleted" };
+        notificationService.Notify(message);
+        await InvokeAsync(() => { StateHasChanged(); });
+    }
+
+
+    private async Task DownloadExcel()
+    {
+        byte[] file;
+
+        if (StockHistory == null) return;
+
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+        using (var package = new ExcelPackage())
+        {
+            var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+            worksheet.Cells.LoadFromCollection(StockHistory, true);
+            package.Save();
+            file = package.GetAsByteArray();
+        }
+        await iJSRuntime.InvokeAsync<List<History>>("saveAsExcel", $"History-{SelectedSymbol}.xlsx", Convert.ToBase64String(file));
+    }
+}

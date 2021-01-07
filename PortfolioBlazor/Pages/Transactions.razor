@@ -1,0 +1,78 @@
+﻿@page "/transactions"
+@using PortfolioBlazor.Data
+@inject PortfolioBlazor.Services.IPortfolioOperations myOperations
+@using OfficeOpenXml;
+@inject IJSRuntime iJSRuntime;
+
+<h3>My Transactions</h3>
+@if (transactions == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <button class="btn btn-primary" @onclick="DownloadExcel">Download Transaction List</button>
+        </div>
+    </div>
+    <br />
+    <div class="row">
+        <table class="table table-responsive-md table-bordered">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Symbol</th>
+                    <th>Type</th>
+                    <th>Qty</th>
+                    <th>Transaction Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var tr in transactions)
+                {
+                    <tr>
+                        <td>@tr.Timestamp</td>
+                        <td>@tr.Symbol</td>
+                        <td>@tr.Type</td>
+                        <td>@tr.Qty</td>
+                        <td>@tr.Price</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+
+}
+
+@code {
+
+    List<Transaction> transactions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        transactions = await myOperations.GetTransactions();
+    }
+
+    private async Task DownloadExcel()
+    {
+        byte[] file;
+
+        if (transactions == null) return;
+
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+        using (var package = new ExcelPackage())
+        {
+            var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+            worksheet.Cells.LoadFromCollection(transactions, true);
+            package.Save();
+            file = package.GetAsByteArray();
+        }
+
+        await iJSRuntime.InvokeAsync<List<Transaction>>("saveAsExcel", $"Transactions.xlsx", Convert.ToBase64String(file));
+    }
+
+
+}

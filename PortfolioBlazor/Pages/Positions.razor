@@ -1,0 +1,81 @@
+﻿@page "/positions"
+@using PortfolioBlazor.Data
+@inject PortfolioBlazor.Services.IPortfolioOperations myOperations
+@using OfficeOpenXml;
+@inject IJSRuntime iJSRuntime;
+
+<h3>Portfolio Positions</h3>
+@if (positions == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            Historical value: <strong>@Math.Round(@historicalValue, 2)</strong>
+        </div>
+        <div class="col-md-4">
+            Market value:  <strong>@Math.Round(@marketValue, 2)</strong>
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-primary" @onclick="DownloadExcel">Download Position List</button>
+        </div>
+    </div>
+    <br />
+
+    <table class="table table-responsive-md table-bordered">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Qty</th>
+                <th>Aquisition Price</th>
+                <th>Market Price/Latest</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ps in positions)
+            {
+                <tr>
+                    <td>@ps.Symbol</td>
+                    <td>@ps.Qty</td>
+                    <td>@ps.PurchasePrice</td>
+                    <td>@ps.MarketPrice</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+
+    List<PortfolioBlazor.Data.Position> positions;
+    decimal historicalValue = 0;
+    decimal marketValue = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        positions = await myOperations.GetPositions();
+        marketValue = await myOperations.GetPortfolioValue_Market();
+        historicalValue = await myOperations.GetPortfolioValue_Historical();
+    }
+
+    private async Task DownloadExcel()
+    {
+        byte[] file;
+
+        if (positions == null) return;
+
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+        using (var package = new ExcelPackage())
+        {
+            var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+            worksheet.Cells.LoadFromCollection(positions, true);
+            package.Save();
+            file = package.GetAsByteArray();
+        }
+        await iJSRuntime.InvokeAsync<List<PortfolioBlazor.Data.Position>>("saveAsExcel", $"Positions.xlsx", Convert.ToBase64String(file));
+    }
+
+}

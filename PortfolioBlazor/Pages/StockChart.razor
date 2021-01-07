@@ -1,0 +1,160 @@
+﻿@page "/stockchart"
+@using PortfolioBlazor.Data
+@inject PortfolioBlazor.Services.IPortfolioOperations myOperations
+@using System.Globalization
+@inject NavigationManager NavigationManager
+@using Syncfusion.Blazor.Charts
+@using Syncfusion.Blazor.Spinner
+
+
+<h2>CandleStick Stock Chart for @SelectedSymbol</h2>
+
+<div class="form-group row">
+    @if (SymbolList != null)
+    {
+        <label for="department" class="col-sm-2 col-form-label">
+            Symbol
+        </label>
+        <div class="col-sm-2">
+            <select id="Symbol" @bind="SelectedSymbol" class="form-control">
+                @foreach (var s in SymbolList)
+                {
+                    <option value="@s">@s</option>
+                }
+            </select>
+        </div>
+        <div class="col-sm-4">
+            <button class="btn btn-secondary" @onclick="ShowStockChart">Show StockChart</button>
+        </div>
+
+    }
+</div>
+<div>
+    @if (StockHistory == null)
+    {
+        <div class="stockchartloader"></div>
+    }
+    else
+    {
+        <div class="@loadClass"></div>
+        <div class="@loadDiv">
+            <SfStockChart Title="AAPL Stock Price">
+                <StockChartEvents Loaded="@ChartLoaded" Load="BeforeRender"></StockChartEvents>
+                <StockChartPrimaryXAxis>
+                    <StockChartAxisMajorGridLines Width="0"></StockChartAxisMajorGridLines>
+                    <StockChartAxisCrosshairTooltip Enable="true"></StockChartAxisCrosshairTooltip>
+                </StockChartPrimaryXAxis>
+                <StockChartPrimaryYAxis>
+                    <StockChartAxisLineStyle Width="0"></StockChartAxisLineStyle>
+                    <StockChartAxisMajorTickLines Width="0"></StockChartAxisMajorTickLines>
+                </StockChartPrimaryYAxis>
+                <StockChartTooltipSettings Enable="true"></StockChartTooltipSettings>
+                <StockChartCrosshairSettings Enable="true"></StockChartCrosshairSettings>
+                <StockChartSeriesCollection>
+                    <StockChartSeries DataSource="@DataSource" Type="ChartSeriesType.Candle"></StockChartSeries>
+                </StockChartSeriesCollection>
+                <StockChartChartArea>
+                    <StockChartChartAreaBorder Width="0"></StockChartChartAreaBorder>
+                </StockChartChartArea>
+            </SfStockChart>
+        </div>
+        <style>
+            .stockchartloader {
+                border: 6px solid #f3f3f3;
+                border-top: 6px solid #7a0fff;
+                width: 40px;
+                height: 40px;
+                position: absolute;
+                top: 46%;
+                left: 46%;
+                border-radius: 50%;
+                -webkit-animation: loader 2s linear infinite;
+                animation: loader 2s linear infinite;
+            }
+
+            .stockchartdiv {
+                visibility: hidden;
+            }
+        </style>
+    }
+</div>
+
+
+@code {
+    List<string> SymbolList;
+    string SelectedSymbol = "AAPL";
+    List<History> StockHistory = null;
+    string loadClass = "stockchartloader";
+    string loadDiv = "stockchartdiv";
+    string CurrentUri;
+    private List<ChartData> DataSource;
+
+    public class ChartData
+    {
+        public DateTime date { get; set; }
+        public decimal open { get; set; }
+        public decimal low { get; set; }
+        public decimal close { get; set; }
+        public decimal high { get; set; }
+        public decimal volume { get; set; }
+    }
+
+    void ChartLoaded(IStockChartEventArgs args)
+    {
+        loadClass = "";
+        loadDiv = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        SymbolList = await myOperations.GetSymbols();
+        await ShowStockChart();
+    }
+
+    async Task ShowStockChart()
+    {
+        StockHistory = await myOperations.GetHistory(SelectedSymbol);
+
+        DataSource = new List<ChartData>();
+        foreach (var sh in StockHistory)
+        {
+            var cd = new ChartData()
+            {
+                date = sh.Timestamp,
+                open = sh.Open,
+                close = sh.Close,
+                high = sh.High,
+                low = sh.Low,
+                volume = sh.Volume
+            };
+            DataSource.Add(cd);
+        }
+
+    }
+
+    void BeforeRender(IStockChartEventArgs Args)
+    {
+        CurrentUri = NavigationManager.Uri;
+        if (CurrentUri.IndexOf("material") > -1)
+        {
+            Args.Theme = ChartTheme.Material;
+        }
+        else if (CurrentUri.IndexOf("fabric") > -1)
+        {
+            Args.Theme = ChartTheme.Fabric;
+        }
+        else if (CurrentUri.IndexOf("bootstrap") > -1)
+        {
+            Args.Theme = ChartTheme.Bootstrap;
+        }
+        else if (CurrentUri.IndexOf("highcontrast") > -1)
+        {
+            Args.Theme = ChartTheme.HighContrast;
+        }
+        else
+        {
+            Args.Theme = ChartTheme.Bootstrap4;
+        }
+    }
+
+}
