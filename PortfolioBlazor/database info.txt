@@ -1,5 +1,0 @@
-TradingBotDB1
-user: zdb
-password: Zocika18.
-
-//"DefaultConnection": "Server=174.138.186.50;Database=TradingBotDB1;User ID=zdb;password=Zocika18.;"
