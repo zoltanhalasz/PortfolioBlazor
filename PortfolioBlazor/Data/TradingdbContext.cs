@@ -26,7 +26,7 @@ namespace PortfolioBlazor.Data
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlServer("Server=174.138.186.50;Database=TradingBotDB1;User ID=zdb;password=Zocika18.;");
+            optionsBuilder.UseSqlServer("");
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
